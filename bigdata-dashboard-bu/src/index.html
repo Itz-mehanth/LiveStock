@@ -10,8 +10,8 @@
   <meta name="theme-color" content="#1976d2">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/logo.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/logo.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/logo.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/logo.png">
   <link rel="shortcut icon" href="favicon.ico">
   <link rel="manifest" href="manifest.json">
 
@@ -19,18 +19,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
-  <!-- Optional: Add preload for main CSS/JS -->
-  <link rel="preload" href="main.css" as="style">
-  <link rel="preload" href="main.js" as="script">
-
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <!-- Root app container -->
-  <app-dashboard></app-dashboard>
+  <app-root></app-root>
 
   <!-- Main JS bundle -->
+  <script src="runtime.js" defer></script>
+  <script src="polyfills.js" defer></script>
   <script src="main.js" defer></script>
 </body>
 </html>

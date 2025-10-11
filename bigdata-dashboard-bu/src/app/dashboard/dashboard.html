@@ -1,0 +1,180 @@
+<div class="dashboard-container">
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-container">
+    <div class="loading-content">
+      <mat-spinner diameter="60" class="custom-spinner"></mat-spinner>
+      <p class="loading-text">Loading market data</p>
+    </div>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !isLoading" class="error-container">
+    <div class="error-content">
+      <mat-icon class="error-icon">error_outline</mat-icon>
+      <h3>Connection Error</h3>
+      <p>{{ error }}</p>
+      <button mat-raised-button color="primary" (click)="fetchData()">
+        <mat-icon>refresh</mat-icon>
+        Retry
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div *ngIf="!isLoading && !error" class="main-content">
+    <!-- Company Selector -->
+    <div class="company-selector glass-card">
+      <div class="selector-header">
+        <mat-icon class="selector-icon">business</mat-icon>
+        <h3>Select Company</h3>
+      </div>
+      <mat-form-field appearance="outline" class="company-dropdown">
+        <mat-label>Company / Symbol</mat-label>
+        <mat-select [(value)]="selectedCompany" (selectionChange)="filterDataByCompany($event.value)" panelClass="company-select-panel">
+          <mat-option value="ALL">
+            <span class="option-all">All Companies (Comparison)</span>
+          </mat-option>
+          <mat-option *ngFor="let company of companies" [value]="company.symbol">
+            <div class="company-option">
+              <span class="company-symbol">{{ company.symbol }}</span>
+              <span class="company-price">${{ company.currentPrice | number:'1.2-2' }}</span>
+              <span class="company-change" [ngClass]="{
+                'positive': company.change > 0,
+                'negative': company.change < 0
+              }">
+                {{ company.change > 0 ? '+' : '' }}{{ company.changePercent | number:'1.2-2' }}%
+              </span>
+            </div>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- Prediction Panel -->
+    <div class="prediction-panel glass-card" *ngIf="selectedCompany !== 'ALL'">
+      <div class="prediction-panel glass-card bg-white rounded-xl shadow-md p-4 md:p-6" *ngIf="selectedCompany !== 'ALL'">
+  <div class="flex items-center mb-2">
+    <mat-icon class="text-indigo-600 mr-2">forecast</mat-icon>
+    <h3 class="text-base font-semibold text-gray-800">Predict Future Prices</h3>
+  </div>
+
+<mat-form-field appearance="outline" class="w-full mb-3 bg-white rounded-md">
+  <mat-label>Horizon</mat-label>
+  <mat-select [(value)]="selectedHorizon" panelClass="company-select-panel bg-white">
+    <mat-option *ngFor="let option of horizonOptions" [value]="option.value">
+      {{ option.label }}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
+
+  <button mat-raised-button
+      color="primary"
+      (click)="fetchPredictions()"
+      [disabled]="isPredicting"
+      class="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 text-sm">
+    <mat-icon *ngIf="!isPredicting" class="text-base">play_arrow</mat-icon>
+    <mat-spinner *ngIf="isPredicting" diameter="18"></mat-spinner>
+    Predict
+  </button>
+
+  <!-- Prediction Results -->
+  <div class="prediction-results mt-4" *ngIf="predictions.length > 0">
+    <h4 class="text-sm font-semibold text-gray-700 mb-1">Predictions for {{ selectedCompany }}</h4>
+    <ul class="divide-y divide-gray-200">
+      <li *ngFor="let p of predictions" class="py-1 flex justify-between text-gray-700 text-sm">
+        <span>{{ p.timestamp | date:'short' }}</span>
+        <span class="font-semibold text-indigo-600">${{ p.predicted_price | number:'1.2-2' }}</span>
+      </li>
+    </ul>
+  </div>
+</div>
+    </div>
+
+
+    <!-- Header Stats -->
+     <div class="mt-8">
+    <div class="stats-grid">
+      <div class="stat-card glass-card">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">show_chart</mat-icon>
+          <span class="stat-label">
+            {{ selectedCompany === 'ALL' ? 'Market Overview' : selectedCompany + ' Price' }}
+          </span>
+        </div>
+        <div class="stat-value" *ngIf="selectedCompany !== 'ALL'">
+          ${{ currentPrice | number:'1.2-2' }}
+        </div>
+        <div class="stat-value" *ngIf="selectedCompany === 'ALL'">
+          {{ companies.length }} Companies
+        </div>
+        <div class="stat-change" *ngIf="selectedCompany !== 'ALL'" [ngClass]="{
+          'positive': isPriceUp,
+          'negative': isPriceDown,
+          'neutral': priceChange === 0
+        }">
+          <mat-icon>{{ isPriceUp ? 'trending_up' : isPriceDown ? 'trending_down' : 'trending_flat' }}</mat-icon>
+          <span>{{ priceChange > 0 ? '+' : '' }}${{ priceChange | number:'1.2-2' }} 
+            ({{ priceChange > 0 ? '+' : '' }}{{ priceChangePercent | number:'1.2-2' }}%)</span>
+        </div>
+        <div class="stat-description" *ngIf="selectedCompany === 'ALL'">
+          Comparative view
+        </div>
+      </div>
+
+      <div class="stat-card glass-card">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">analytics</mat-icon>
+          <span class="stat-label">Data Points</span>
+        </div>
+        <div class="stat-value">{{ totalDataPoints }}</div>
+        <div class="stat-description">Active measurements</div>
+      </div>
+
+      <div class="stat-card glass-card">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">access_time</mat-icon>
+          <span class="stat-label">Last Update</span>
+        </div>
+        <div class="stat-value update-time">
+          {{ lastUpdate | date:'shortTime' }}
+        </div>
+        <div class="stat-description">Auto-refresh in 5s</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- Chart Card -->
+    <div class="chart-card glass-card">
+      <div class="chart-header">
+        <div class="chart-title-section">
+          <h2 class="chart-title">
+            {{ selectedCompany === 'ALL' ? 'Market Comparison' : selectedCompany + ' Performance' }}
+          </h2>
+          <p class="chart-subtitle">Real-time average price tracking</p>
+        </div>
+        <div class="chart-controls">
+          <button mat-icon-button matTooltip="Reset Zoom" (click)="resetZoom()">
+            <mat-icon>zoom_out_map</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="chart-container">
+        <canvas
+          baseChart
+          [data]="lineChartData"
+          [options]="lineChartOptions"
+          [type]="'line'">
+        </canvas>
+      </div>
+
+      <div class="chart-footer">
+        <div class="chart-hint">
+          <mat-icon>touch_app</mat-icon>
+          <span>Scroll to zoom • Drag to pan</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

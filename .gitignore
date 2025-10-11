@@ -1,0 +1,72 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.swp
+*.swo
+*.env
+*.venv
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# ==========================
+# IDEs
+# ==========================
+.vscode/
+.idea/
+*.iml
+
+# ==========================
+# Jupyter / Notebook
+# ==========================
+.ipynb_checkpoints
+
+# ==========================
+# PySpark / Spark temp files
+# ==========================
+spark_output/
+spark_checkpoint/
+spark_tmp/
+C:/spark_temp/
+
+# ==========================
+# Kafka / Zookeeper logs
+# ==========================
+logs/
+*.log
+kafka-logs/
+zookeeper-data/
+
+# ==========================
+# PostgreSQL / Database
+# ==========================
+*.db
+*.sqlite3
+
+# ==========================
+# OS files
+# ==========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================
+# PyCharm
+# ==========================
+*.idea/
+.idea/
+*.iml
+
+vevn/

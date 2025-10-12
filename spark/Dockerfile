@@ -1,5 +1,5 @@
 # Use Bitnami Spark image
-FROM bitnami/spark:3.4.2
+FROM bitnami/spark:latest
 
 # Set working directory
 WORKDIR /app

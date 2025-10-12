@@ -1,8 +1,8 @@
 {
   "version": 2,
   "name": "bigdata-dashboard",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist/bigdata-dashboard",
+  "buildCommand": "npm run build -- --configuration production",
+  "outputDirectory": "dist/bigdata-dashboard/browser",
   "routes": [
     {
       "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|json|woff|woff2|ttf|eot|webmanifest))",

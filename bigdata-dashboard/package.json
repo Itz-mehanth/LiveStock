@@ -4,11 +4,11 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build",
+    "build": "ng build --configuration production",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
-  },
-  "prettier": {
+  }
+,  "prettier": {
     "printWidth": 100,
     "singleQuote": true,
     "overrides": [

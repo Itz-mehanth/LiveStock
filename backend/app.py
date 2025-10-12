@@ -20,7 +20,7 @@ POSTGRES_CONFIG = {
     "host": "localhost",
     "database": "stock_db",
     "user": "postgres",
-    "password": "postgres"
+    "password": "1234"
 }
 TRAIN_INTERVAL_MINUTES = 5
 os.makedirs(MODEL_DIR, exist_ok=True)

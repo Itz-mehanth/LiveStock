@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { DashboardComponent } from './dashboard/dashboard';
+import { DashboardComponent } from '../../../bigdata-dashboard/src/app/dashboard/dashboard';
 
 @Component({
   selector: 'app-root',

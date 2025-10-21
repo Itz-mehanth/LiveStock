@@ -81,12 +81,10 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    # --- THIS IS THE FINAL FIX ---
-    # The health check is now a separate, correctly formatted block.
-    # 'path' and 'initialDelaySeconds' are nested within it.
-    healthCheck:
-      path: /api/stock_data
-      initialDelaySeconds: 120
+    # --- THIS IS THE FIX ---
+    # healthCheckPath and initialDelaySeconds are top-level properties,
+    # not nested under a 'healthCheck' block.
+    healthCheckPath: /api/stock_data
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:

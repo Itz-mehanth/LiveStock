@@ -1,0 +1,89 @@
+# This blueprint deploys your entire backend application stack on Render.
+# The frontend should be deployed as a separate static site.
+services:
+  # 1. Managed PostgreSQL Database
+  - type: db
+    name: postgres
+    databaseName: stock_db
+    user: postgres
+    plan: free
+
+  # 2. Zookeeper Service (Private)
+  - type: pservice
+    name: zookeeper
+    plan: free
+    image:
+      url: confluentinc/cp-zookeeper:7.5.0
+    envVars:
+      - key: ZOOKEEPER_CLIENT_PORT
+        value: 2181
+      - key: ZOOKEEPER_TICK_TIME
+        value: 2000
+
+  # 3. Kafka Service (Private)
+  - type: pservice
+    name: kafka
+    plan: free
+    image:
+      url: confluentinc/cp-kafka:7.5.0
+    envVars:
+      - key: KAFKA_BROKER_ID
+        value: 1
+      - key: KAFKA_ZOOKEEPER_CONNECT
+        value: zookeeper:2181
+      - key: KAFKA_ADVERTISED_LISTENERS
+        value: PLAINTEXT://kafka:29092
+      - key: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+        value: 1
+      - key: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+        value: 0
+
+  # 4. Data Producer Service (Private)
+  - type: pservice
+    name: producer
+    plan: free
+    dockerfilePath: ./producer/Dockerfile
+    dockerContext: ./producer
+    envVars:
+      - key: KAFKA_BROKER
+        value: kafka:29092
+
+  # 5. Spark Processing Service (Private)
+  - type: pservice
+    name: spark
+    plan: free
+    dockerfilePath: ./spark/Dockerfile
+    dockerContext: ./spark
+    envVars:
+      - key: KAFKA_BROKER
+        value: kafka:29092
+      - key: POSTGRES_HOST
+        fromService:
+          type: db
+          name: postgres
+          property: host
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: db
+          name: postgres
+          property: password
+
+  # 6. Backend API Service (Publicly Accessible)
+  - type: web
+    name: backend
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/stock_data
+    envVars:
+      - key: POSTGRES_HOST
+        fromService:
+          type: db
+          name: postgres
+          property: host
+      - key: POSTGRES_PASSWORD
+        fromService:
+          type: db
+          name: postgres
+          property: password
+

@@ -11,7 +11,7 @@ databases:
 
 services:
   # 2. Zookeeper Service (Private)
-  - type: pservice
+  - type: worker # Corrected from pservice
     name: zookeeper
     plan: free
     image:
@@ -23,7 +23,7 @@ services:
         value: 2000
 
   # 3. Kafka Service (Private)
-  - type: pservice
+  - type: worker # Corrected from pservice
     name: kafka
     plan: free
     image:
@@ -41,7 +41,7 @@ services:
         value: 0
 
   # 4. Data Producer Service (Private)
-  - type: pservice
+  - type: worker # Corrected from pservice
     name: producer
     plan: free
     dockerfilePath: ./producer/Dockerfile
@@ -51,7 +51,7 @@ services:
         value: kafka:29092
 
   # 5. Spark Processing Service (Private)
-  - type: pservice
+  - type: worker # Corrected from pservice
     name: spark
     plan: free
     dockerfilePath: ./spark/Dockerfile

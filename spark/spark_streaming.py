@@ -1,80 +1,52 @@
 import os
-import shutil
+import time
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import from_json, col, window, avg, from_unixtime, current_timestamp
+from pyspark.sql.functions import from_json, col, window, avg, from_unixtime
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, TimestampType
-import psycopg2
-from psycopg2.extras import execute_batch
+from pyspark.ml.regression import LinearRegression
+from pyspark.ml.feature import VectorAssembler
 
-POSTGRES_CONFIG = {
-    "host": "localhost",
-    "database": "stock_db",
-    "user": "postgres",
-    "password": "1234"
-}
-
-# -----------------------------
-# Config
-# -----------------------------
+# --- Configuration ---
 KAFKA_TOPIC = "stock_prices"
-KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"
-OUTPUT_DIR = os.path.abspath("spark_output")
-CHECKPOINT_DIR = os.path.abspath("spark_checkpoint")
-MAX_FILES = 100
-TEMP_DIR = "C:/spark_temp"
+KAFKA_BROKER = os.getenv("KAFKA_BROKER", "localhost:9092")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+MODEL_OUTPUT_DIR = "/app/models/spark_ml"
+TRAINING_INTERVAL_SECONDS = 300 # 5 minutes
 
-# Create directories
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-os.makedirs(TEMP_DIR, exist_ok=True)
+# --- State variable to track the last training time ---
+# Using a dictionary to make it mutable inside the function
+last_training_run = {"time": 0}
 
-print("\n" + "="*60)
-print("Spark Streaming Configuration")
-print("="*60)
-print(f"Kafka Topic: {KAFKA_TOPIC}")
-print(f"Kafka Servers: {KAFKA_BOOTSTRAP_SERVERS}")
-print(f"Output Dir: {OUTPUT_DIR}")
-print("="*60 + "\n")
+# --- Database Configuration ---
+POSTGRES_CONFIG = {
+    "host": POSTGRES_HOST, "port": "5432", "database": "stock_db",
+    "user": "postgres", "password": "1234", "driver": "org.postgresql.Driver"
+}
+POSTGRES_URL = f"jdbc:postgresql://{POSTGRES_CONFIG['host']}:{POSTGRES_CONFIG['port']}/{POSTGRES_CONFIG['database']}"
+POSTGRES_TABLE = "daily_stock_agg"
 
-# -----------------------------
-# Spark Session
-# -----------------------------
-spark = SparkSession.builder \
-    .appName("StockPriceStreamingPipeline") \
-    .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13:3.4.1") \
-    .config("spark.driver.memory", "4g") \
-    .config("spark.local.dir", TEMP_DIR) \
-    .config("spark.sql.shuffle.partitions", "4") \
-    .getOrCreate()
+os.makedirs(MODEL_OUTPUT_DIR, exist_ok=True)
 
+# --- Spark Session ---
+spark = SparkSession.builder.appName("StockPriceStreamingPipeline").getOrCreate()
 spark.sparkContext.setLogLevel("WARN")
 
-# -----------------------------
-# Kafka Schema
-# -----------------------------
+# --- Schema ---
 schema = StructType([
     StructField("symbol", StringType(), True),
     StructField("price", DoubleType(), True),
     StructField("timestamp", DoubleType(), True)
 ])
 
-# -----------------------------
-# Read from Kafka
-# -----------------------------
-print("📡 Connecting to Kafka...")
+# --- Read from Kafka ---
 df = spark.readStream \
     .format("kafka") \
-    .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
+    .option("kafka.bootstrap.servers", KAFKA_BROKER) \
     .option("subscribe", KAFKA_TOPIC) \
     .option("startingOffsets", "earliest") \
-    .option("failOnDataLoss", "false") \
     .load()
-print("✅ Connected to Kafka successfully")
 
-# -----------------------------
-# Parse JSON and convert timestamp
-# FIX: Don't divide by 1000 if timestamp is already in seconds
-# -----------------------------
+# --- Parse and Transform Data ---
 df_parsed = df.selectExpr("CAST(value AS STRING) as json_str") \
     .select(from_json(col("json_str"), schema).alias("data")) \
     .select(
@@ -83,117 +55,90 @@ df_parsed = df.selectExpr("CAST(value AS STRING) as json_str") \
         from_unixtime(col("data.timestamp")).cast(TimestampType()).alias("timestamp")
     )
 
-# Add debug output to see raw data
-print("\n🔍 Debug Mode: Will print first few records...")
-
-# -----------------------------
-# Aggregate: 10-second window per symbol
-# -----------------------------
+# --- Aggregation for the dashboard (fast, 5-second window) ---
 agg_df = df_parsed \
-    .withWatermark("timestamp", "10 minutes") \
-    .groupBy(
-        window(col("timestamp"), "10 seconds"),
-        col("symbol")
-    ).agg(
-        avg("price").alias("avg_price")
-    ).select(
-        col("window.start").alias("window_start"),
-        col("window.end").alias("window_end"),
-        col("symbol"),
-        col("avg_price")
-    )
+    .withWatermark("timestamp", "10 seconds") \
+    .groupBy(window(col("timestamp"), "5 seconds"), col("symbol")) \
+    .agg(avg("price").alias("avg_price")) \
+    .select(col("window.start").alias("date"), col("symbol"), col("avg_price"))
 
-# -----------------------------
-# Foreach Batch: Save and Trim
-# -----------------------------
-batch_counter = {"count": 0}
+# --- Model Training Function (no changes) ---
+def train_and_save_model(symbol, history_df):
+    model_path = os.path.join(MODEL_OUTPUT_DIR, symbol)
+    print(f"   - Training model for {symbol}...")
+    history_df = history_df.withColumn("features_ts", col("date").cast("long"))
+    assembler = VectorAssembler(inputCols=["features_ts"], outputCol="features")
+    lr = LinearRegression(featuresCol="features", labelCol="avg_price")
+    model = lr.fit(assembler.transform(history_df))
+    model.write().overwrite().save(model_path)
+    print(f"   - ✅ Model for {symbol} saved.")
 
-def save_batch_to_postgres(batch_df):
-    rows = batch_df.collect()
-    if not rows:
-        return
-
-    try:
-        conn = psycopg2.connect(**POSTGRES_CONFIG)
-        cur = conn.cursor()
-        sql = """
-            INSERT INTO daily_stock_agg (symbol, date, avg_price)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (symbol, date) DO UPDATE
-            SET avg_price = EXCLUDED.avg_price
-        """
-        data = [(row.symbol, row.window_start, float(row.avg_price)) for row in rows]
-        execute_batch(cur, sql, data)
-        conn.commit()
-        cur.close()
-        conn.close()
-        print(f"✅ Batch saved to PostgreSQL: {len(rows)} rows")
-    except Exception as e:
-        print(f"❌ Failed to save batch to PostgreSQL: {e}")
-
+# --- THE NEW, DECOUPLED BATCH PROCESSING LOGIC ---
 def process_batch(batch_df, batch_id):
-    batch_counter["count"] += 1
     row_count = batch_df.count()
-    
-    print(f"\n{'='*60}")
-    print(f"📦 Processing Batch {batch_id}")
-    print(f"{'='*60}")
-    print(f"Row count: {row_count}")
+    print(f"\n📦 Processing Batch {batch_id} ({time.ctime()}) with {row_count} rows")
     
     if row_count == 0:
-        print(f"⏭️  Batch {batch_id}: No data received")
+        print("   - ⏭️ No new data in this batch.")
         return
 
+    batch_df.cache()
+    batch_df.show(5, truncate=False)
+
+    # --- STEP 1: Always save data to PostgreSQL for the live dashboard ---
     try:
-        # Show sample data for debugging
-        print("\n📊 Sample data:")
-        batch_df.show(5, truncate=False)
-        
-        # Save batch to JSON
-        batch_path = os.path.join(OUTPUT_DIR, f"batch_{batch_id}")
-        batch_df.coalesce(1).write.mode("overwrite").json(batch_path)
-        print(f"💾 Saved to: {batch_path}")
-
-        # Save to PostgreSQL
-        save_batch_to_postgres(batch_df)
-
-        # Trim old batches
-        all_batches = sorted(
-            [d for d in os.listdir(OUTPUT_DIR) if d.startswith("batch_")],
-            key=lambda x: int(x.split("_")[1])
-        )
-        if len(all_batches) > MAX_FILES:
-            to_delete = all_batches[:-MAX_FILES]
-            for batch_dir in to_delete:
-                shutil.rmtree(os.path.join(OUTPUT_DIR, batch_dir), ignore_errors=True)
-            print(f"🗑️  Deleted {len(to_delete)} old batches")
-
-        # Summary
-        if batch_counter["count"] % 5 == 0:
-            print(f"\n📊 Summary: {batch_counter['count']} batches processed, {len(all_batches)} batches stored\n")
+        batch_df.write.format("jdbc").option("url", POSTGRES_URL).option("dbtable", POSTGRES_TABLE) \
+            .option("user", POSTGRES_CONFIG['user']).option("password", POSTGRES_CONFIG['password']) \
+            .option("driver", POSTGRES_CONFIG['driver']).mode("append").save()
+        print(f"   - 💾 Saved {row_count} rows to PostgreSQL for UI.")
     except Exception as e:
-        print(f"❌ Error processing batch {batch_id}: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"   - ❌ Failed to save batch to PostgreSQL: {e}")
 
-# -----------------------------
-# Start Streaming Query
-# -----------------------------
-print("\n🚀 Starting streaming pipeline...")
-print("⏳ Waiting for data from Kafka topic...")
-print("   (Make sure your Kafka producer is running!)\n")
+    # --- STEP 2: Conditionally run the model training ---
+    current_time = time.time()
+    if (current_time - last_training_run["time"]) > TRAINING_INTERVAL_SECONDS:
+        print("\n" + "="*60)
+        print("🕒 5-minute interval reached. Starting model training cycle...")
+        
+        # Get all unique symbols from the entire history to ensure all models are updated
+        try:
+            all_symbols_df = spark.read.format("jdbc").option("url", POSTGRES_URL) \
+                .option("dbtable", f"(SELECT DISTINCT symbol FROM {POSTGRES_TABLE}) as t") \
+                .option("user", POSTGRES_CONFIG['user']).option("password", POSTGRES_CONFIG['password']) \
+                .option("driver", POSTGRES_CONFIG['driver']).load()
+            
+            distinct_symbols = [row.symbol for row in all_symbols_df.collect()]
+            print(f"   - Found {len(distinct_symbols)} unique symbols to train.")
 
+            for symbol in distinct_symbols:
+                historical_data = spark.read.format("jdbc").option("url", POSTGRES_URL) \
+                    .option("dbtable", f"(SELECT * FROM {POSTGRES_TABLE} WHERE symbol = '{symbol}') as t") \
+                    .option("user", POSTGRES_CONFIG['user']).option("password", POSTGRES_CONFIG['password']) \
+                    .option("driver", POSTGRES_CONFIG['driver']).load()
+                
+                if historical_data.count() > 1:
+                    train_and_save_model(symbol, historical_data)
+                else:
+                    print(f"   - ℹ️ Not enough data for {symbol}.")
+            
+            print("✅ Model training cycle complete.")
+            print("="*60 + "\n")
+            last_training_run["time"] = current_time # Reset the timer
+        except Exception as e:
+            print(f"   - ❌ An error occurred during the training cycle: {e}")
+    else:
+        print("   - ℹ️ Skipping model training (not yet 5 minutes).")
+
+    batch_df.unpersist()
+
+# --- Start the Streaming Query with a fast trigger for the UI ---
 query = agg_df.writeStream \
     .outputMode("update") \
     .foreachBatch(process_batch) \
-    .option("checkpointLocation", CHECKPOINT_DIR) \
-    .trigger(processingTime="15 seconds") \
+    .trigger(processingTime="5 seconds") \
     .start()
 
-try:
-    query.awaitTermination()
-except KeyboardInterrupt:
-    print("\n⏹️  Stopping stream...")
-    query.stop()
-    spark.stop()
-    print("✅ Stream stopped successfully")
+query.awaitTermination()
+
+    
+

@@ -1,18 +1,20 @@
 # This blueprint deploys your entire backend application stack on Render.
-# It uses the modern format with a separate 'databases' section.
+# It uses the corrected format for database users and Docker runtimes.
 
 databases:
   # 1. Managed PostgreSQL Database
-  # This is now defined in its own top-level section.
   - name: postgres
     databaseName: stock_db
-    user: postgres
+    # FIX: Changed the user from 'postgres' to a custom name
+    user: stock_user
     plan: free
 
 services:
   # 2. Zookeeper Service (Private)
-  - type: worker # Corrected from pservice
+  - type: worker
     name: zookeeper
+    # FIX: Explicitly set the runtime to 'docker'
+    runtime: docker
     plan: free
     image:
       url: confluentinc/cp-zookeeper:7.5.0
@@ -23,8 +25,10 @@ services:
         value: 2000
 
   # 3. Kafka Service (Private)
-  - type: worker # Corrected from pservice
+  - type: worker
     name: kafka
+    # FIX: Explicitly set the runtime to 'docker'
+    runtime: docker
     plan: free
     image:
       url: confluentinc/cp-kafka:7.5.0
@@ -41,8 +45,10 @@ services:
         value: 0
 
   # 4. Data Producer Service (Private)
-  - type: worker # Corrected from pservice
+  - type: worker
     name: producer
+    # FIX: Explicitly set the runtime to 'docker'
+    runtime: docker
     plan: free
     dockerfilePath: ./producer/Dockerfile
     dockerContext: ./producer
@@ -51,15 +57,16 @@ services:
         value: kafka:29092
 
   # 5. Spark Processing Service (Private)
-  - type: worker # Corrected from pservice
+  - type: worker
     name: spark
+    # FIX: Explicitly set the runtime to 'docker'
+    runtime: docker
     plan: free
     dockerfilePath: ./spark/Dockerfile
     dockerContext: ./spark
     envVars:
       - key: KAFKA_BROKER
         value: kafka:29092
-      # --- UPDATED: Reference the database using 'fromDatabase' ---
       - key: POSTGRES_HOST
         fromDatabase:
           name: postgres
@@ -68,16 +75,22 @@ services:
         fromDatabase:
           name: postgres
           property: password
+      # FIX: Added the new database user
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: postgres
+          property: user
 
   # 6. Backend API Service (Publicly Accessible)
   - type: web
     name: backend
+    # FIX: Explicitly set the runtime to 'docker'
+    runtime: docker
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /api/stock_data
     envVars:
-      # --- UPDATED: Reference the database using 'fromDatabase' ---
       - key: POSTGRES_HOST
         fromDatabase:
           name: postgres
@@ -86,4 +99,9 @@ services:
         fromDatabase:
           name: postgres
           property: password
+      # FIX: Added the new database user
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: postgres
+          property: user
 

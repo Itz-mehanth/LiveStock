@@ -1,13 +1,15 @@
 # This blueprint deploys your entire backend application stack on Render.
-# The frontend should be deployed as a separate static site.
-services:
+# It uses the modern format with a separate 'databases' section.
+
+databases:
   # 1. Managed PostgreSQL Database
-  - type: db
-    name: postgres
+  # This is now defined in its own top-level section.
+  - name: postgres
     databaseName: stock_db
     user: postgres
     plan: free
 
+services:
   # 2. Zookeeper Service (Private)
   - type: pservice
     name: zookeeper
@@ -57,14 +59,13 @@ services:
     envVars:
       - key: KAFKA_BROKER
         value: kafka:29092
+      # --- UPDATED: Reference the database using 'fromDatabase' ---
       - key: POSTGRES_HOST
-        fromService:
-          type: db
+        fromDatabase:
           name: postgres
           property: host
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: db
+        fromDatabase:
           name: postgres
           property: password
 
@@ -76,14 +77,13 @@ services:
     dockerContext: ./backend
     healthCheckPath: /api/stock_data
     envVars:
+      # --- UPDATED: Reference the database using 'fromDatabase' ---
       - key: POSTGRES_HOST
-        fromService:
-          type: db
+        fromDatabase:
           name: postgres
           property: host
       - key: POSTGRES_PASSWORD
-        fromService:
-          type: db
+        fromDatabase:
           name: postgres
           property: password
 

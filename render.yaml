@@ -1,91 +1,21 @@
-# This simplified blueprint is designed to pass Render's validation.
-
-databases:
-  # 1. Managed PostgreSQL Database
-  - name: postgres
-    databaseName: stock_db
-    user: stock_user # Render requires a custom username
-
 services:
-  # 2. Zookeeper Service
-  - type: worker
-    name: zookeeper
-    env: docker # Use 'env: docker' for pre-built images
-    image:
-      url: confluentinc/cp-zookeeper:7.5.0
-    envVars:
-      - key: ZOOKEEPER_CLIENT_PORT
-        value: 2181
-      - key: ZOOKEEPER_TICK_TIME
-        value: 2000
-
-  # 3. Kafka Service
-  - type: worker
-    name: kafka
-    env: docker
-    image:
-      url: confluentinc/cp-kafka:7.5.0
-    envVars:
-      - key: KAFKA_BROKER_ID
-        value: 1
-      - key: KAFKA_ZOOKEEPER_CONNECT
-        value: zookeeper:2181
-      - key: KAFKA_ADVERTISED_LISTENERS
-        value: PLAINTEXT://kafka:29092
-      - key: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
-        value: 1
-      - key: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
-        value: 0
-
-  # 4. Data Producer Service
-  - type: worker
-    name: producer
-    env: docker # Use 'env: docker' for services with a Dockerfile
-    dockerfilePath: ./producer/Dockerfile
-    dockerContext: ./producer
-    envVars:
-      - key: KAFKA_BROKER
-        value: kafka:29092
-
-  # 5. Spark Processing Service
-  - type: worker
-    name: spark
-    env: docker
-    dockerfilePath: ./spark/Dockerfile
-    dockerContext: ./spark
-    envVars:
-      - key: KAFKA_BROKER
-        value: kafka:29092
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: postgres
-          property: host
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: postgres
-          property: password
-      - key: POSTGRES_USER
-        fromDatabase:
-          name: postgres
-          property: user
-
-  # 6. Backend API Service (Publicly Accessible)
   - type: web
-    name: backend
+    name: stream-ml-pipeline
     env: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    repo: https://github.com/<your-username>/<your-repo>
+    dockerCommand: docker compose up --build
+    plan: starter
+    autoDeploy: true
     envVars:
-      - key: POSTGRES_HOST
-        fromDatabase:
-          name: postgres
-          property: host
-      - key: POSTGRES_PASSWORD
-        fromDatabase:
-          name: postgres
-          property: password
       - key: POSTGRES_USER
-        fromDatabase:
-          name: postgres
-          property: user
-
+        value: postgres
+      - key: POSTGRES_PASSWORD
+        value: 1234
+      - key: POSTGRES_DB
+        value: stock_db
+      - key: KAFKA_BROKER
+        value: kafka:29092
+    disk:
+      name: stream-pipeline-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 1

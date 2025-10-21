@@ -5,15 +5,13 @@ databases:
   # 1. Managed PostgreSQL Database
   - name: postgres
     databaseName: stock_db
-    # FIX: Changed the user from 'postgres' to a custom name
-    user: stock_user
+    user: stock_user # Render requires a custom username
     plan: free
 
 services:
   # 2. Zookeeper Service (Private)
   - type: worker
     name: zookeeper
-    # FIX: Explicitly set the runtime to 'docker'
     runtime: docker
     plan: free
     image:
@@ -27,7 +25,6 @@ services:
   # 3. Kafka Service (Private)
   - type: worker
     name: kafka
-    # FIX: Explicitly set the runtime to 'docker'
     runtime: docker
     plan: free
     image:
@@ -47,7 +44,6 @@ services:
   # 4. Data Producer Service (Private)
   - type: worker
     name: producer
-    # FIX: Explicitly set the runtime to 'docker'
     runtime: docker
     plan: free
     dockerfilePath: ./producer/Dockerfile
@@ -59,7 +55,6 @@ services:
   # 5. Spark Processing Service (Private)
   - type: worker
     name: spark
-    # FIX: Explicitly set the runtime to 'docker'
     runtime: docker
     plan: free
     dockerfilePath: ./spark/Dockerfile
@@ -75,7 +70,6 @@ services:
         fromDatabase:
           name: postgres
           property: password
-      # FIX: Added the new database user
       - key: POSTGRES_USER
         fromDatabase:
           name: postgres
@@ -84,12 +78,15 @@ services:
   # 6. Backend API Service (Publicly Accessible)
   - type: web
     name: backend
-    # FIX: Explicitly set the runtime to 'docker'
     runtime: docker
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    healthCheckPath: /api/stock_data
+    # --- THIS IS THE FIX ---
+    # Give the service time to start before Render checks its health
+    healthCheck:
+      path: /api/stock_data
+      initialDelaySeconds: 120
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:
@@ -99,7 +96,6 @@ services:
         fromDatabase:
           name: postgres
           property: password
-      # FIX: Added the new database user
       - key: POSTGRES_USER
         fromDatabase:
           name: postgres

@@ -1,14 +1,14 @@
-# This blueprint deploys your entire backend application stack on Render.
-# It uses the corrected format for database users and Docker runtimes.
+# This is the final blueprint with the corrected health check syntax for Render.
 
 databases:
+  # 1. Managed PostgreSQL Database
   - name: postgres
     databaseName: stock_db
-    user: stock_user
+    user: stock_user # Render requires a custom username
     plan: free
 
 services:
-  # Zookeeper Service
+  # 2. Zookeeper Service (Private)
   - type: worker
     name: zookeeper
     runtime: docker
@@ -21,7 +21,7 @@ services:
       - key: ZOOKEEPER_TICK_TIME
         value: 2000
 
-  # Kafka Service
+  # 3. Kafka Service (Private)
   - type: worker
     name: kafka
     runtime: docker
@@ -40,7 +40,7 @@ services:
       - key: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
         value: 0
 
-  # Data Producer Service
+  # 4. Data Producer Service (Private)
   - type: worker
     name: producer
     runtime: docker
@@ -51,7 +51,7 @@ services:
       - key: KAFKA_BROKER
         value: kafka:29092
 
-  # Spark Processing Service
+  # 5. Spark Processing Service (Private)
   - type: worker
     name: spark
     runtime: docker
@@ -74,7 +74,7 @@ services:
           name: postgres
           property: user
 
-  # Backend API Service
+  # 6. Backend API Service (Publicly Accessible)
   - type: web
     name: backend
     runtime: docker
@@ -82,10 +82,10 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     # --- THIS IS THE FIX ---
-    # The healthCheck block and its properties are now correctly indented.
-    healthCheck:
-      path: /api/stock_data
-      initialDelaySeconds: 120
+    # healthCheckPath and initialDelaySeconds are top-level properties,
+    # not nested under a 'healthCheck' block.
+    healthCheckPath: /api/stock_data
+    initialDelaySeconds: 120
     envVars:
       - key: POSTGRES_HOST
         fromDatabase:

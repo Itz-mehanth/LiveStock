@@ -3,9 +3,11 @@ services:
     name: stream-ml-pipeline
     env: docker
     repo: https://github.com/<your-username>/<your-repo>
-    dockerCommand: docker compose up --build
+    dockerfilePath: ./Dockerfile
     plan: starter
     autoDeploy: true
+    startCommand: >
+      docker compose up --build
     envVars:
       - key: POSTGRES_USER
         value: postgres

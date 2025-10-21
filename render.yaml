@@ -2,14 +2,13 @@
 # It uses the corrected format for database users and Docker runtimes.
 
 databases:
-  # 1. Managed PostgreSQL Database
   - name: postgres
     databaseName: stock_db
-    user: stock_user # Render requires a custom username
+    user: stock_user
     plan: free
 
 services:
-  # 2. Zookeeper Service (Private)
+  # Zookeeper Service
   - type: worker
     name: zookeeper
     runtime: docker
@@ -22,7 +21,7 @@ services:
       - key: ZOOKEEPER_TICK_TIME
         value: 2000
 
-  # 3. Kafka Service (Private)
+  # Kafka Service
   - type: worker
     name: kafka
     runtime: docker
@@ -41,7 +40,7 @@ services:
       - key: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
         value: 0
 
-  # 4. Data Producer Service (Private)
+  # Data Producer Service
   - type: worker
     name: producer
     runtime: docker
@@ -52,7 +51,7 @@ services:
       - key: KAFKA_BROKER
         value: kafka:29092
 
-  # 5. Spark Processing Service (Private)
+  # Spark Processing Service
   - type: worker
     name: spark
     runtime: docker
@@ -75,7 +74,7 @@ services:
           name: postgres
           property: user
 
-  # 6. Backend API Service (Publicly Accessible)
+  # Backend API Service
   - type: web
     name: backend
     runtime: docker
@@ -83,7 +82,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     # --- THIS IS THE FIX ---
-    # Give the service time to start before Render checks its health
+    # The healthCheck block and its properties are now correctly indented.
     healthCheck:
       path: /api/stock_data
       initialDelaySeconds: 120

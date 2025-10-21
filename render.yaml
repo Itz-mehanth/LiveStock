@@ -6,8 +6,6 @@ services:
     dockerfilePath: ./Dockerfile
     plan: starter
     autoDeploy: true
-    startCommand: >
-      docker compose up --build
     envVars:
       - key: POSTGRES_USER
         value: postgres

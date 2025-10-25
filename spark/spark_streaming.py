@@ -71,7 +71,7 @@ def train_and_save_model(symbol, history_df):
     lr = LinearRegression(featuresCol="features", labelCol="avg_price")
     model = lr.fit(assembler.transform(history_df))
     model.write().overwrite().save(model_path)
-    print(f"   - ✅ Model for {symbol} saved.")
+    print(f"   -  Model for {symbol} saved.")
 
 # --- THE NEW, DECOUPLED BATCH PROCESSING LOGIC ---
 def process_batch(batch_df, batch_id):
@@ -90,15 +90,15 @@ def process_batch(batch_df, batch_id):
         batch_df.write.format("jdbc").option("url", POSTGRES_URL).option("dbtable", POSTGRES_TABLE) \
             .option("user", POSTGRES_CONFIG['user']).option("password", POSTGRES_CONFIG['password']) \
             .option("driver", POSTGRES_CONFIG['driver']).mode("append").save()
-        print(f"   - 💾 Saved {row_count} rows to PostgreSQL for UI.")
+        print(f"   - Saved {row_count} rows to PostgreSQL for UI.")
     except Exception as e:
-        print(f"   - ❌ Failed to save batch to PostgreSQL: {e}")
+        print(f"   - Failed to save batch to PostgreSQL: {e}")
 
     # --- STEP 2: Conditionally run the model training ---
     current_time = time.time()
     if (current_time - last_training_run["time"]) > TRAINING_INTERVAL_SECONDS:
         print("\n" + "="*60)
-        print("🕒 5-minute interval reached. Starting model training cycle...")
+        print("5-minute interval reached. Starting model training cycle...")
         
         # Get all unique symbols from the entire history to ensure all models are updated
         try:
@@ -119,15 +119,15 @@ def process_batch(batch_df, batch_id):
                 if historical_data.count() > 1:
                     train_and_save_model(symbol, historical_data)
                 else:
-                    print(f"   - ℹ️ Not enough data for {symbol}.")
+                    print(f"   -  Not enough data for {symbol}.")
             
-            print("✅ Model training cycle complete.")
+            print("Model training cycle complete.")
             print("="*60 + "\n")
             last_training_run["time"] = current_time # Reset the timer
         except Exception as e:
-            print(f"   - ❌ An error occurred during the training cycle: {e}")
+            print(f"   -  An error occurred during the training cycle: {e}")
     else:
-        print("   - ℹ️ Skipping model training (not yet 5 minutes).")
+        print("   - Skipping model training (not yet 5 minutes).")
 
     batch_df.unpersist()
 

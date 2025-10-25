@@ -23,12 +23,12 @@ def create_kafka_producer(retries=10, delay=5):
                 api_version_auto_timeout_ms=10000, # Increase timeout for initial connection
                 request_timeout_ms=20000
             )
-            print("✅ Successfully connected to Kafka.")
+            print("Successfully connected to Kafka.")
             return producer
         except NoBrokersAvailable:
-            print(f"❌ Kafka not available. Retrying in {delay} seconds...")
+            print(f" Kafka not available. Retrying in {delay} seconds...")
             time.sleep(delay)
-    print("❌ Could not connect to Kafka after several retries. Exiting.")
+    print("Could not connect to Kafka after several retries. Exiting.")
     return None
 
 def main():

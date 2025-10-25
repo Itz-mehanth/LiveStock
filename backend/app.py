@@ -23,7 +23,6 @@ CORS(app)
 spark = SparkSession.builder.appName("StockPredictionAPI").master("local[*]").getOrCreate()
 spark.sparkContext.setLogLevel("ERROR")
 
-
 # --- Helper Functions ---
 def get_historical_data():
     """Fetches raw data, leaving timezone conversion to the API route."""
@@ -35,7 +34,7 @@ def get_historical_data():
         df.rename(columns={'date': 'window_end'}, inplace=True)
         return df
     except Exception as e:
-        print(f"❌ Database connection error: {e}")
+        print(f" Database connection error: {e}")
         return pd.DataFrame()
 
 # ... (predict_future function remains the same) ...
@@ -54,7 +53,7 @@ def predict_future(symbol, horizon_days):
         results = predictions.select("features_ts", "prediction").collect()
         return [{"timestamp": datetime.fromtimestamp(r.features_ts).isoformat(), "predicted_price": float(r.prediction)} for r in results]
     except Exception as e:
-        print(f"❌ Error during prediction for {symbol}: {e}")
+        print(f" Error during prediction for {symbol}: {e}")
         return []
 
 # --- API Routes ---

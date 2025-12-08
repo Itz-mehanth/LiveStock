@@ -116,15 +116,8 @@ ng serve
   - Remember to reset data: `docker-compose down -v && docker-compose up`.
 - **Spark Processing Interval:** Adjust window duration and trigger interval in `spark/spark_streaming.py`.
 - **Model Training Interval:** Modify `TRAINING_INTERVAL_SECONDS` in `spark/spark_streaming.py`.
-
 ---
 
-## Deployment
-
-- Backend services can be deployed using `render.yaml` (excluding Kafka/Zookeeper if using a managed Kafka provider like Confluent Cloud).  
-- Frontend can be deployed separately as a static site (e.g., Vercel, Netlify, or Render Static Sites).  
-- Configure the frontend API URL to point to the deployed backend service.
-
----
-
+##Screenshot
+<img width="1668" height="906" alt="Screenshot 2025-12-05 184746" src="https://github.com/user-attachments/assets/3d50ba89-f63b-4d0c-b3f5-ea843f58eb0f" />
 

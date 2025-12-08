@@ -118,6 +118,6 @@ ng serve
 - **Model Training Interval:** Modify `TRAINING_INTERVAL_SECONDS` in `spark/spark_streaming.py`.
 ---
 
-##Screenshot
+## Screenshot
 <img width="1668" height="906" alt="Screenshot 2025-12-05 184746" src="https://github.com/user-attachments/assets/3d50ba89-f63b-4d0c-b3f5-ea843f58eb0f" />
 
